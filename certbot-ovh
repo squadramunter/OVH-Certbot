@@ -1,0 +1,67 @@
+#!/bin/bash
+
+## Changable variable list
+
+acme_api="https://acme-v02.api.letsencrypt.org/directory"
+
+dns_provider="ovh"
+
+webserver="nginx"
+
+credentials="/etc/.auths/ovh.ini"
+
+## Fixes correct permissions on credentials file
+
+chmod 600 ${credentials}
+
+## Checks if packages are installed correctly to use Certbot Google API requests
+
+REQUIRED_PKG="certbot"
+PKG_OK=$(dpkg-query -W --showformat='${Status}\n' $REQUIRED_PKG|grep "install ok installed")
+echo Checking for $REQUIRED_PKG: $PKG_OK
+if [ "" = "$PKG_OK" ]; then
+  echo "No $REQUIRED_PKG. Setting up $REQUIRED_PKG."
+  sudo apt-get --yes install $REQUIRED_PKG
+fi
+
+
+REQUIRED_PKG="python3-certbot-nginx"
+PKG_OK=$(dpkg-query -W --showformat='${Status}\n' $REQUIRED_PKG|grep "install ok installed")
+echo Checking for $REQUIRED_PKG: $PKG_OK
+if [ "" = "$PKG_OK" ]; then
+  echo "No $REQUIRED_PKG. Setting up $REQUIRED_PKG."
+  sudo apt-get --yes install $REQUIRED_PKG
+fi
+
+
+REQUIRED_PKG="python3-certbot-dns-ovh"
+PKG_OK=$(dpkg-query -W --showformat='${Status}\n' $REQUIRED_PKG|grep "install ok installed")
+echo Checking for $REQUIRED_PKG: $PKG_OK
+if [ "" = "$PKG_OK" ]; then
+  echo "No $REQUIRED_PKG. Setting up $REQUIRED_PKG."
+  sudo apt-get --yes install $REQUIRED_PKG
+fi
+
+## Certbot Request using Google DNS
+
+while getopts d:w:?: OPTION; do
+  case "$OPTION" in
+    d)
+      domain=${OPTARG}
+      echo "The domain you entered is: $OPTARG"
+      ;;
+    w)
+      wildcard=${OPTARG}
+      echo "The wildcard domain you entered is: $OPTARG"
+      ;;
+    ?)
+      echo "script usage: [-d domain] [-w wildcard domain]" >&2
+      exit 1
+      ;;
+  esac
+done
+shift "$(($OPTIND -1))"
+
+echo "Creating Wildcard certificate for the domains listed above!!!"
+
+certbot certonly -i ${webserver} --server ${acme_api} --preferred-challenges dns -d ${wildcard} -d ${domain} --dns-${dns_provider} --dns-${dns_provider}-credentials $credentials
